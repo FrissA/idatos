@@ -1,113 +1,284 @@
-import Image from 'next/image'
+"use client";
+import { useCallback, useState } from "react";
+import Image from "next/image";
+
+import Spinner from "./components/Spinner";
+
+const OMDB_URL = "http://www.omdbapi.com";
+const OMDB_API_KEY = process.env.NEXT_PUBLIC_OMDB_API_KEY;
+
+const TMDB_URL = "https://api.themoviedb.org/3";
+const TMDB_JWT_KEY = process.env.NEXT_PUBLIC_TMDB_JWT_KEY;
+
+const IMAGE_PLACEHOLDER =
+  "https://cringemdb.com/img/movie-poster-placeholder.png";
+
+const IMAGE_TMDB_URL = "https://image.tmdb.org/t/p/w500";
+
+const EMPTY_TMDB_RESULT = {
+  adult: undefined,
+  backdrop_path: undefined,
+  genre_ids: undefined,
+  id: undefined,
+  media_type: undefined,
+  original_language: undefined,
+  original_title: undefined,
+  overview: undefined,
+  popularity: undefined,
+  poster_path: undefined,
+  release_date: undefined,
+  title: undefined,
+  video: undefined,
+  vote_average: undefined,
+  vote_count: undefined,
+};
 
 export default function Home() {
+  const [query, setQuery] = useState("");
+  const [resultsOMDB, setResultsOMDB] = useState();
+  const [resultsTMDB, setResultsTMDB] = useState();
+  const [loadingOMDB, setLoadingOMDB] = useState(false);
+  const [loadingTMDB, setLoadingTMDB] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+
+  const searchFilms = useCallback(async () => {
+    setNotFound(false);
+    setLoadingTMDB(true);
+    setLoadingOMDB(true);
+    setResultsTMDB(EMPTY_TMDB_RESULT);
+    // OMDB
+    try {
+      const dataOMDB = await fetch(
+        `${OMDB_URL}/?t=${query}&apikey=${OMDB_API_KEY}`
+      );
+      console.log("dataOMDB", dataOMDB);
+      const movieOnOMDB = await dataOMDB.json();
+      setResultsOMDB(movieOnOMDB);
+
+      if (!movieOnOMDB.imdbID && movieOnOMDB.Error) {
+        setNotFound(true);
+        setResultsOMDB();
+      } else {
+        setLoadingOMDB(false);
+        // TMDB
+        const dataTMDB = await fetch(
+          `${TMDB_URL}/find/${movieOnOMDB.imdbID}?external_source=imdb_id`,
+          {
+            headers: {
+              Authorization: `Bearer ${TMDB_JWT_KEY}`,
+              accept: "application/json",
+            },
+          }
+        );
+        console.log("dataTMDB", dataTMDB);
+        const movieOnTMDB = await dataTMDB.json();
+        Object.values(movieOnTMDB).forEach((value) => {
+          if (value.length) {
+            console.log("dataTMDB value", value[0]);
+            setResultsTMDB(value[0]);
+          }
+        });
+      }
+      setLoadingOMDB(false);
+      setLoadingTMDB(false);
+    } catch (err) {
+      console.log(err);
+    }
+  }, [query]);
+
+  const renderCard = useCallback(
+    (
+      resultsOMDB,
+      {
+        adult,
+        backdrop_path,
+        genre_ids,
+        id,
+        media_type,
+        original_language,
+        original_title,
+        overview,
+        popularity,
+        poster_path,
+        release_date,
+        title,
+        video,
+        vote_average,
+        vote_count,
+      }
+    ) => {
+      const {
+        Actors,
+        Awards,
+        Country,
+        Director,
+        imdbRating,
+        imdbVotes,
+        Language,
+        Metascore,
+        BoxOffice,
+        Plot,
+        Poster,
+        Rated,
+        Ratings, //array de opciones con Source y Value
+        Released,
+        Runtime,
+        Title,
+        Type,
+        Writer,
+      } = resultsOMDB;
+
+      return (
+        <div className="bg-white p-4 rounded shadow-md w-full">
+          <div className="flex justify-center mb-4">
+            {Poster && (
+              <Image
+                src={Poster && Poster !== "N/A" ? Poster : IMAGE_PLACEHOLDER}
+                alt="Poster from OMDB"
+                className="max-w-full h-auto border-4 border-indigo-200"
+                width={200}
+                height={300}
+              />
+            )}
+            {loadingTMDB ? (
+              <Spinner />
+            ) : (
+              <Image
+                src={
+                  poster_path
+                    ? `${IMAGE_TMDB_URL}${poster_path}`
+                    : IMAGE_PLACEHOLDER
+                }
+                alt="Poster from TMDB"
+                className="max-w-full h-auto border-4 border-pink-200"
+                width={200}
+                height={300}
+              />
+            )}
+            {loadingTMDB ? (
+              <Spinner />
+            ) : (
+              <Image
+                src={
+                  backdrop_path
+                    ? `${IMAGE_TMDB_URL}${backdrop_path}`
+                    : IMAGE_PLACEHOLDER
+                }
+                alt="Photo from TMDB"
+                className="max-w-full h-auto border-4 border-pink-200"
+                width={backdrop_path ? 450 : 200}
+                height={backdrop_path ? 253 : 300}
+              />
+            )}
+          </div>
+          <h2 className="text-lg font-semibold bg-indigo-200">{Title}</h2>
+          <p className="text-gray-600 bg-indigo-200">Plot: {Plot}</p>
+          {Plot !== overview && (
+            <p className="text-gray-600 bg-pink-200">Overview: {overview}</p>
+          )}
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Type: {Type[0].toUpperCase()}
+            {Type.slice(1)}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Runtime: {Runtime}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Director: {Director}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Writer: {Writer}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Actors: {Actors}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Awards: {Awards}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Released: {Released}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Language: {Language}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            Country: {Country}
+          </p>
+          <p className="text-gray-700 font-semibold bg-indigo-200">
+            BoxOffice: {BoxOffice}
+          </p>
+          <p className="text-gray-700 font-semibold mt-2">Ratings:</p>
+          <div className="flex justify-center">
+            <div className="flex flex-col bg-indigo-200 p-3 m-3 rounded-md">
+              <p className="font-bold">IMDB</p>
+              <p>Rating: {imdbRating}</p>
+              <p>Votes: {imdbVotes}</p>
+            </div>
+            <div className="flex flex-col bg-indigo-200 p-3 m-3 rounded-md">
+              <p className="font-bold">Metascore</p>
+              <p>Rating: {Metascore}</p>
+            </div>
+            {Ratings.length && Ratings?.[1]?.Source === "Rotten Tomatoes" && (
+              <div className="flex flex-col bg-indigo-200 p-3 m-3 rounded-md">
+                <p className="font-bold">Rotten Tomatoes</p>
+                <p>Rating: {Ratings[1].Value}</p>
+              </div>
+            )}
+            <div className="flex flex-col bg-pink-200 p-3 m-3 rounded-md">
+              <p className="font-bold">The Movie Database</p>
+              <p>Rating: {vote_average}</p>
+              <p>Votes: {vote_count}</p>
+            </div>
+          </div>
+        </div>
+      );
+    },
+    [loadingTMDB]
+  );
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main
+      className={`flex min-h-screen flex-col items-center p-12 ${
+        resultsOMDB ? "pt-4" : ""
+      }`}
+    >
+      <div className="bg-white p-8 rounded shadow-md w-2/5 mb-4">
+        <h1 className="text-2xl font-semibold mb-4 text-gray-800">Movie4x4</h1>
+        <div className="flex items-center">
+          <input
+            type="text"
+            className="p-2 border border-gray-300 rounded mr-2 w-full text-gray-800"
+            placeholder="Ingrese el título de su película, serie, etc..."
+            value={query}
+            onChange={({ target }) => setQuery(target.value)}
+          />
+          <button
+            className="bg-blue-500 text-white p-2 rounded"
+            onClick={searchFilms}
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            Buscar
+          </button>
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
+      {notFound && (
+        <p className="font-bold">No se han encontrado resultados!</p>
+      )}
+      {loadingOMDB && <Spinner />}
+      {!!resultsOMDB && (
+        <>
+          <div className="flex flex-col mb-4">
+            <div className="flex items-center">
+              <div className={`w-4 h-4 rounded-full mr-2 bg-indigo-200`} />
+              <span>The OpenMovie Database</span>
+            </div>
+            <div className="flex items-center">
+              <div className={`w-4 h-4 rounded-full mr-2 bg-pink-200`} />
+              <span>The Movie Database</span>
+            </div>
+          </div>
+          {renderCard(resultsOMDB, resultsTMDB)}
+        </>
+      )}
     </main>
-  )
+  );
 }
