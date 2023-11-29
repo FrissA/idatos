@@ -3,8 +3,9 @@ import { useCallback, useState } from "react";
 import Image from "next/image";
 
 import Spinner from "./components/Spinner";
+import logoFing from "./logo_fing.png";
 
-const OMDB_URL = "http://www.omdbapi.com";
+const OMDB_URL = "https://corsproxy.io/?http://www.omdbapi.com";
 const OMDB_API_KEY = process.env.NEXT_PUBLIC_OMDB_API_KEY;
 
 const TMDB_URL = "https://api.themoviedb.org/3";
@@ -242,8 +243,9 @@ export default function Home() {
         resultsOMDB ? "pt-4" : ""
       }`}
     >
+      <Image src={logoFing} alt="" />
       <div className="bg-white p-8 rounded shadow-md w-2/5 mb-4">
-        <h1 className="text-2xl font-semibold mb-4 text-gray-800">Movie4x4</h1>
+        <h1 className="text-2xl font-semibold mb-4 text-gray-800">IDatos Movie Database</h1>
         <div className="flex items-center">
           <input
             type="text"
